@@ -31,11 +31,7 @@ const app = express();
 app.use(express.json());
 app.use(morgan("[:method] :url :status - :response-time ms :reqBody"));
 app.use(cors());
-
-app.get("/", function (req, res) {
-  res.send("hello, world!");
-});
-
+app.use(express.static("build"));
 app.get("/", (request, response) => {
   response.send("<h1>Phonebook backend</h1>");
 });
