@@ -2,7 +2,6 @@ require("dotenv").config();
 const express = require("express");
 const morgan = require("morgan");
 const cors = require("cors");
-const mongoose = require("mongoose");
 const Person = require("./models/Person");
 
 let personsData = [
@@ -63,16 +62,9 @@ app.get("/api/persons/:id", (request, response) => {
 });
 
 app.delete("/api/persons/:id", (request, response) => {
-  const id = Number(request.params.id);
-  personsData = personsData.filter((p) => p.id !== id);
+  Person.findById(request.params.id).then((person) => response.json(person));
   response.status(204).end();
 });
-
-function generateRandomId() {
-  const min = 100000;
-  const max = 999999;
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-}
 
 app.post("/api/persons", (request, response) => {
   const { name, number } = request.body;
@@ -87,16 +79,10 @@ app.post("/api/persons", (request, response) => {
       error: "Name already exists in the phonebook.",
     });
   }
-
-  const person = {
+  Person.create({
     name: name,
     number: number,
-    id: generateRandomId(),
-  };
-
-  personsData = personsData.concat(person);
-
-  response.json(person);
+  }).then((person) => response.json(person));
 });
 
 const PORT = process.env.PORT || 3001;
