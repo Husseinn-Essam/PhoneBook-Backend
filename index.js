@@ -4,36 +4,25 @@ const morgan = require("morgan");
 const cors = require("cors");
 const Person = require("./models/Person");
 
-let personsData = [
-  {
-    id: 1,
-    name: "Arto Hellas",
-    number: "040-123456",
-  },
-  {
-    id: 2,
-    name: "Ada Lovelace",
-    number: "39-44-5323523",
-  },
-  {
-    id: 3,
-    name: "Dan Abramov",
-    number: "12-43-234345",
-  },
-  {
-    id: 4,
-    name: "Mary Poppendieck",
-    number: "39-23-6423122",
-  },
-];
 morgan.token("reqBody", function (req, res) {
   return JSON.stringify(req.body);
 });
+
+const errorHandler = (error, request, response, next) => {
+  console.error(error.message);
+
+  if (error.name === "CastError") {
+    return response.status(400).send({ error: "malformatted id" });
+  }
+  response.status(500).json({ error: "Something went wrong." });
+  next(error);
+};
 const app = express();
 app.use(express.json());
 app.use(morgan("[:method] :url :status - :response-time ms :reqBody"));
 app.use(cors());
 app.use(express.static("build"));
+app.use(errorHandler);
 app.get("/", (request, response) => {
   response.send("<h1>Phonebook backend</h1>");
 });
@@ -42,47 +31,54 @@ app.get("/api/persons", (request, response) => {
   Person.find({}).then((persons) => response.json(persons));
 });
 
-app.get("/info", (request, response) => {
-  const requestTime = new Date();
-  const infoMessage = `<p>The Phonebook has info for ${personsData.length} persons</p>`;
-  const requestTimeMessage = `<p>Request received at: ${requestTime}</p>`;
-
-  const combinedMessage = infoMessage + requestTimeMessage;
-  response.send(combinedMessage);
-});
-
-app.get("/api/persons/:id", (request, response) => {
-  const id = Number(request.params.id);
-  const person = personsData.find((p) => p.id === id);
-  if (person) {
+app.get("/api/persons/:id", async (request, response, next) => {
+  const id = request.params.id;
+  try {
+    const person = await Person.findById(id);
     response.json(person);
-  } else {
+  } catch (error) {
     response.status(404).end();
+    next(error);
   }
 });
 
-app.delete("/api/persons/:id", (request, response) => {
-  Person.findById(request.params.id).then((person) => response.json(person));
-  response.status(204).end();
+app.delete("/api/persons/:id", async (request, response, next) => {
+  try {
+    await Person.findByIdAndRemove(request.params.id);
+    response.status(204).end();
+  } catch (error) {
+    next(error);
+  }
 });
 
-app.post("/api/persons", (request, response) => {
+app.post("/api/persons", async (request, response, next) => {
   const { name, number } = request.body;
+  try {
+    const newPerson = await Person.create({
+      name: name,
+      number: number,
+    });
+    response.json(newPerson);
+  } catch (error) {
+    next(error);
+  }
+});
 
-  if (!name || !number) {
-    return response.status(400).json({
-      error: "Input is not complete!",
-    });
+app.put("/api/persons/:id", async (request, response, next) => {
+  const newPerson = {
+    name: request.body.name,
+    number: request.body.number,
+  };
+  try {
+    let updatedPerson = await Person.findByIdAndUpdate(
+      request.params.id,
+      newPerson,
+      { new: true }
+    );
+    response.json(updatedPerson);
+  } catch (error) {
+    next(error);
   }
-  if (personsData.some((person) => person.name === name)) {
-    return response.status(409).json({
-      error: "Name already exists in the phonebook.",
-    });
-  }
-  Person.create({
-    name: name,
-    number: number,
-  }).then((person) => response.json(person));
 });
 
 const PORT = process.env.PORT || 3001;
