@@ -8,21 +8,12 @@ morgan.token("reqBody", function (req, res) {
   return JSON.stringify(req.body);
 });
 
-const errorHandler = (error, request, response, next) => {
-  console.error(error.message);
-
-  if (error.name === "CastError") {
-    return response.status(400).send({ error: "malformatted id" });
-  }
-  response.status(500).json({ error: "Something went wrong." });
-  next(error);
-};
 const app = express();
 app.use(express.json());
 app.use(morgan("[:method] :url :status - :response-time ms :reqBody"));
 app.use(cors());
 app.use(express.static("build"));
-app.use(errorHandler);
+
 app.get("/", (request, response) => {
   response.send("<h1>Phonebook backend</h1>");
 });
@@ -73,13 +64,32 @@ app.put("/api/persons/:id", async (request, response, next) => {
     let updatedPerson = await Person.findByIdAndUpdate(
       request.params.id,
       newPerson,
-      { new: true }
+      { new: true, runValidators: true, context: "query" }
     );
     response.json(updatedPerson);
   } catch (error) {
     next(error);
   }
 });
+
+const errorHandler = (error, request, response, next) => {
+  console.error(error.message);
+
+  if (error.name === "CastError") {
+    return response.status(400).send({ error: "malformatted id" });
+  }
+  if (error.name === "ValidationError") {
+    console.log("yeah thats the one !!");
+    console.log(error);
+    console.log("long:");
+    console.log(error);
+    return response.status(400).json(error.message);
+  }
+  response.status(500).json({ error: "Something went wrong." });
+
+  next(error);
+};
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
