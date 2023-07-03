@@ -1,6 +1,5 @@
 const mongoose = require("mongoose");
 require("dotenv").config();
-const password = "";
 const connectionURL = process.env.MONGODB_URI;
 mongoose.set("strictQuery", false);
 mongoose.connect(connectionURL);
